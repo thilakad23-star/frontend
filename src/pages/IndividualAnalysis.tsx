@@ -46,20 +46,31 @@ export default function IndividualAnalysis() {
     try {
       const resumeText = await resumeFile.text();
 
-      const mockResult: AnalysisResult = {
-        resume_skills: ['Python', 'Machine Learning', 'SQL', 'Data Visualization'],
-        job_skills_required: ['Python', 'R', 'Machine Learning', 'SQL', 'Statistics', 'Data Visualization'],
-        missing_skills: ['R', 'Statistics'],
-        match_percent: 67,
-        verdict: 'Suitable',
-      };
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-resume`;
 
-      setTimeout(() => {
-        setResult(mockResult);
-        setLoading(false);
-      }, 2000);
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          resumeText,
+          jobRole,
+          jobDescription,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to analyze resume');
+      }
+
+      const analysisResult: AnalysisResult = await response.json();
+      setResult(analysisResult);
     } catch (error) {
       console.error('Analysis error:', error);
+      alert('Failed to analyze resume. Please try again.');
+    } finally {
       setLoading(false);
     }
   };

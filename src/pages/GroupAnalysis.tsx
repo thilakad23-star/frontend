@@ -53,21 +53,45 @@ export default function GroupAnalysis() {
     setResults([]);
 
     try {
-      const mockResults: ResumeAnalysis[] = resumeFiles.map((file, index) => ({
-        name: file.name,
-        match_percent: Math.floor(Math.random() * 40) + 50,
-        verdict: Math.random() > 0.5 ? 'Suitable' : 'Not Suitable',
-        resume_skills: ['Python', 'JavaScript', 'SQL', 'React'],
-        missing_skills: ['Docker', 'Kubernetes'],
-      }));
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-resume`;
 
-      setTimeout(() => {
-        const sorted = [...mockResults].sort((a, b) => b.match_percent - a.match_percent);
-        setResults(sorted);
-        setLoading(false);
-      }, 2000);
+      const analysisPromises = resumeFiles.map(async (file) => {
+        const resumeText = await file.text();
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            resumeText,
+            jobRole,
+            jobDescription,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to analyze ${file.name}`);
+        }
+
+        const result = await response.json();
+        return {
+          name: file.name,
+          match_percent: result.match_percent,
+          verdict: result.verdict,
+          resume_skills: result.resume_skills,
+          missing_skills: result.missing_skills,
+        };
+      });
+
+      const analysisResults = await Promise.all(analysisPromises);
+      const sorted = [...analysisResults].sort((a, b) => b.match_percent - a.match_percent);
+      setResults(sorted);
     } catch (error) {
       console.error('Analysis error:', error);
+      alert('Failed to analyze resumes. Please try again.');
+    } finally {
       setLoading(false);
     }
   };
